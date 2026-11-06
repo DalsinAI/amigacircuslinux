@@ -15,6 +15,11 @@
   December 11, 1999 - April 28, 2001
 */
 
+#ifndef SHARED_SCOREFILE_YES
+#ifndef SHARED_SCOREFILE_NO
+#error something went wrong in configure, either SHARED_SCOREFILE_YES or SHARED_SCOREFILE_NO must be defined. Please tell cts@debian.org how you did this.
+#endif
+#endif
 
 /* Constraints: */
 
@@ -430,6 +435,9 @@ void drawtext(int x, int y, char * str);
 void drawfuzz(int x, int y, int w, int h);
 void seticon(void);
 void usage(int ret);
+#ifdef SHARED_SCOREFILE_YES
+FILE * open_score_file(char * mode);
+#endif
 FILE * open_option_file(char * mode);
 void addscore(int player, int inc);
 int highscorescreen(void);
@@ -579,7 +587,37 @@ int main(int argc, char * argv[])
       strcpy(highscorer[i], "TUX");
     }
   
+
+#ifdef SHARED_SCOREFILE_YES
+  fi = open_score_file("r");
   
+  if (fi != NULL) {
+    do {
+      fgets(temp, sizeof(temp), fi);
+
+      if (!feof(fi)) {
+	temp[strlen(temp) - 1] = '\0';
+
+	/* Parse each line: */
+
+	if (strstr(temp, "highscore") == temp &&
+	    temp[9] >= '0' && temp[9] <= '7' &&
+	    temp[10] == '=') {
+	  highscore[temp[9] - '0'] = atoi(temp + 11);
+	} else if (strstr(temp, "highscorer") == temp &&
+		   temp[10] >= '0' && temp[10] <= '7' &&
+		   temp[11] == '=') {
+	  highscorer[temp[10] - '0'][0] = temp[12];
+	  highscorer[temp[10] - '0'][1] = temp[13];
+	  highscorer[temp[10] - '0'][2] = temp[14];
+	}
+      }
+    } while (!feof(fi));
+
+    fclose(fi);
+  }
+#endif /* SHARED_SCOREFILE_YES */
+
   /* Load options: */
   
   fi = open_option_file("r");
@@ -597,7 +635,20 @@ int main(int argc, char * argv[])
 	      
 	      /* Parse each line: */
 	      
-	      if (strstr(temp, "highscore") == temp &&
+	      if (strstr(temp, "effects=") == temp)
+		{
+		  sfx_vol = atoi(temp + 8);
+		  if (sfx_vol > 3 || sfx_vol < 0)
+		    sfx_vol = 3;
+		}
+	      else if (strstr(temp, "music=") == temp)
+		{
+		  music_vol = atoi(temp + 6);
+		  if (music_vol > 3 || music_vol < 0)
+		    music_vol = 3;
+		}
+#ifdef SHARED_SCOREFILE_NO
+	      else if (strstr(temp, "highscore") == temp &&
 		  temp[9] >= '0' && temp[9] <= '7' &&
 		  temp[10] == '=')
 		{
@@ -611,18 +662,7 @@ int main(int argc, char * argv[])
 		  highscorer[temp[10] - '0'][1] = temp[13];
 		  highscorer[temp[10] - '0'][2] = temp[14];
 		}
-	      else if (strstr(temp, "effects=") == temp)
-		{
-		  sfx_vol = atoi(temp + 8);
-		  if (sfx_vol > 3 || sfx_vol < 0)
-		    sfx_vol = 3;
-		}
-	      else if (strstr(temp, "music=") == temp)
-		{
-		  music_vol = atoi(temp + 6);
-		  if (music_vol > 3 || music_vol < 0)
-		    music_vol = 3;
-		}
+#endif /* SHARED_SCOREFILE_NO */
 	    }
 	}
       while (!feof(fi));
@@ -667,8 +707,36 @@ int main(int argc, char * argv[])
   while (!done);
   
   
+  /* Save scores: */
+
+#ifdef SHARED_SCOREFILE_YES
+  fi = open_score_file("w");
+  if (fi != NULL) {
+    /* Comment at the top (I wish _everyone_ did this!) */
+
+    fprintf(fi, "# Circus Linux! score file\n\n");
+
+    /* High scores: */
+
+    fprintf(fi, "# Highscores:\n\n");
+
+    for (i = 0; i < 8; i++) {
+      fprintf(fi, "highscore%d=%d\n", i, highscore[i]);
+      fprintf(fi, "highscorer%d=%s\n\n", i, highscorer[i]);
+    }
+
+    fprintf(fi, "\n");
+
+    /* The end! */
+
+    fprintf(fi, "# (File automatically created.)\n");
+
+    fclose(fi);
+  }
+#endif /* SHARED_SCOREFILE_YES */
+
   /* Save options: */
-  
+
   fi = open_option_file("w");
   if (fi != NULL)
     {
@@ -677,6 +745,7 @@ int main(int argc, char * argv[])
       fprintf(fi, "# Circus Linux! options file\n\n");
       
       
+#ifdef SHARED_SCOREFILE_NO
       /* High scores: */
       
       fprintf(fi, "# Highscores:\n\n");
@@ -686,9 +755,9 @@ int main(int argc, char * argv[])
 	  fprintf(fi, "highscore%d=%d\n", i, highscore[i]);
 	  fprintf(fi, "highscorer%d=%s\n\n", i, highscorer[i]);
 	}
-      
+
       fprintf(fi, "\n");
-      
+#endif /* SHARED_SCOREFILE_NO */
       
       /* Volume settings: */
       
@@ -2722,7 +2791,7 @@ void setup(void)
     {
       fprintf(stderr,
               "\nError: I could not initialize video!\n"
-              "The Simple DirectMedia error that occured was:\n"
+              "The Simple DirectMedia error that occurred was:\n"
               "%s\n\n", SDL_GetError());
       exit(1);
     }
@@ -2734,7 +2803,7 @@ void setup(void)
   if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
       fprintf(stderr, "Warning: I could not initialize joystick!\n"
-	      "The Simple DirectMedia error that occured was:\n"
+	      "The Simple DirectMedia error that occurred was:\n"
 	      "%s\n\n", SDL_GetError());
       
       use_joystick = 0;
@@ -2756,7 +2825,7 @@ void setup(void)
 	  if (js == NULL)
 	    {
 	      fprintf(stderr, "Warning: Could not open joystick 1.\n"
-		      "The Simple DirectMedia error that occured was:\n"
+		      "The Simple DirectMedia error that occurred was:\n"
 		      "%s\n\n", SDL_GetError());
 	      
 	      use_joystick = 0;
@@ -2797,7 +2866,7 @@ void setup(void)
         {
           fprintf(stderr,
                   "\nWarning: I could not initialize audio!\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", SDL_GetError());
           use_sound = 0;
         }
@@ -2809,12 +2878,12 @@ void setup(void)
 #ifndef NOSOUND
   if (use_sound == 1)
     {
-      if (Mix_OpenAudio(44100, AUDIO_S16, 2, 256) < 0)
+      if (Mix_OpenAudio(44100, AUDIO_S16, 2, 4096) < 0)
         {
           fprintf(stderr,
                   "\nWarning: I could not set up audio for 44100 Hz "
                   "16-bit stereo.\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", SDL_GetError());
           use_sound = 0;
         }
@@ -2832,7 +2901,7 @@ void setup(void)
           fprintf(stderr,
                   "\nWarning: I could not set up fullscreen video for "
                   "640x480 mode.\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", SDL_GetError());
           use_fullscreen = 0;
         }
@@ -2846,7 +2915,7 @@ void setup(void)
         {
           fprintf(stderr,
                   "\nError: I could not set up video for 640x480 mode.\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", SDL_GetError());
           exit(1);
         }
@@ -2876,7 +2945,7 @@ void setup(void)
           fprintf(stderr,
                   "\nError: I couldn't load a graphics file:\n"
                   "%s\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", image_names[i], SDL_GetError());
           exit(1);
         }
@@ -2891,7 +2960,7 @@ void setup(void)
           fprintf(stderr,
                   "\nError: I could not set the color key for the file:\n"
                   "%s\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", image_names[i], SDL_GetError());
           exit(1);
         }
@@ -2902,7 +2971,7 @@ void setup(void)
           fprintf(stderr,
                   "\nError: I couldn't convert a file to the display format:\n"
                   "%s\n"
-                  "The Simple DirectMedia error that occured was:\n"
+                  "The Simple DirectMedia error that occurred was:\n"
                   "%s\n\n", image_names[i], SDL_GetError());
           exit(1);
         }
@@ -2939,7 +3008,7 @@ void setup(void)
               fprintf(stderr,
                       "\nError: I could not load the sound file:\n"
                       "%s\n"
-                      "The Simple DirectMedia error that occured was:\n"
+                      "The Simple DirectMedia error that occurred was:\n"
                       "%s\n\n", sound_names[i], SDL_GetError());
               exit(1);
             }
@@ -2956,7 +3025,7 @@ void setup(void)
 	  fprintf(stderr,
 		  "\nError: I could not load the music file:\n"
 		  "%s\n"
-		  "The Simple DirectMedia error that occured was:\n"
+		  "The Simple DirectMedia error that occurred was:\n"
 		  "%s\n\n", MUS_TITLE, SDL_GetError());
 	  exit(1);
 	}
@@ -2969,7 +3038,7 @@ void setup(void)
 	  fprintf(stderr,
 		  "\nError: I could not load the music file:\n"
 		  "%s\n"
-		  "The Simple DirectMedia error that occured was:\n"
+		  "The Simple DirectMedia error that occurred was:\n"
 		  "%s\n\n", MUS_GAME, SDL_GetError());
 	  exit(1);
 	}
@@ -2982,7 +3051,7 @@ void setup(void)
 	  fprintf(stderr,
 		  "\nError: I could not load the music file:\n"
 		  "%s\n"
-		  "The Simple DirectMedia error that occured was:\n"
+		  "The Simple DirectMedia error that occurred was:\n"
 		  "%s\n\n", MUS_GAMEOVER, SDL_GetError());
 	  exit(1);
 	}
@@ -2995,7 +3064,7 @@ void setup(void)
 	  fprintf(stderr,
 		  "\nError: I could not load the music file:\n"
 		  "%s\n"
-		  "The Simple DirectMedia error that occured was:\n"
+		  "The Simple DirectMedia error that occurred was:\n"
 		  "%s\n\n", MUS_HISCORE, SDL_GetError());
 	  exit(1);
 	}
@@ -3008,7 +3077,7 @@ void setup(void)
 	  fprintf(stderr,
 		  "\nError: I could not load the music file:\n"
 		  "%s\n"
-		  "The Simple DirectMedia error that occured was:\n"
+		  "The Simple DirectMedia error that occurred was:\n"
 		  "%s\n\n", MUS_HISCORESCREEN, SDL_GetError());
 	  exit(1);
 	}
@@ -3364,7 +3433,7 @@ void seticon(void)
     {
       fprintf(stderr,
               "\nError: I could not load the icon image: %s\n"
-              "The Simple DirectMedia error that occured was:\n"
+              "The Simple DirectMedia error that occurred was:\n"
               "%s\n\n", DATA_PREFIX "images/icon.png", SDL_GetError());
       exit(1);
     }
@@ -3424,6 +3493,33 @@ void usage(int ret)
 }
 
 
+#ifdef SHARED_SCOREFILE_YES
+FILE * open_score_file(char * mode)
+{
+  FILE * fi;
+
+  /* Try opening the file: */
+
+  fi = fopen("/var/games/circuslinux/scorefile", mode);
+
+  if (fi == NULL)
+    {
+      fprintf(stderr, "\nWarning: I could not open the score file ");
+
+      if (strcmp(mode, "r") == 0)
+        fprintf(stderr, "for read:");
+      else if (strcmp(mode, "w") == 0)
+        fprintf(stderr, "for write:");
+
+     fprintf(stderr, "\n%s\n"
+              "The error that occurred was:\n"
+              "%s\n\n","/var/games/circuslinux/scorefile" , strerror(errno));
+    }
+
+  return(fi);
+}
+#endif
+
 /* Open the option file: */
 
 FILE * open_option_file(char * mode)
@@ -3444,25 +3540,53 @@ FILE * open_option_file(char * mode)
   else
     home = ".";
   
-  
   /* Create the buffer for the filename: */
   
+#ifdef SHARED_SCOREFILE_YES
+/* do not touch the old scorefile, options go in the (new) rc file instead */
+  filename = (char *) malloc(sizeof(char) * (strlen(home) +
+                                             strlen("/.circuslinuxrc") + 1));
+
+  strcpy(filename, home);
+  strcat(filename, "/.circuslinuxrc");
+#else
   filename = (char *) malloc(sizeof(char) * (strlen(home) +
                                              strlen("/.circuslinux") + 1));
-  
+
   strcpy(filename, home);
   strcat(filename, "/.circuslinux");
+#endif
 #else
   filename = "circuslinux.dat";
 #endif
   
   
   /* Try opening the file: */
-  
   fi = fopen(filename, mode);
   
   if (fi == NULL)
     {
+#ifdef SHARED_SCOREFILE_YES
+      if (strcmp(mode, "r") == 0)
+	{ /* try to read old options file when the new one is not found*/
+          strcpy(filename, home);
+          strcat(filename, "/.circuslinux\0\0");
+          fprintf(stderr, "Trying old options file instead: %s...\n", filename);
+          fi = fopen(filename, mode);
+
+          if (fi != NULL)
+            {
+              fprintf(stderr, "Found %s.\n", filename);
+              fprintf(stderr, "Your config will be stored in %src upon exit.\n", filename);
+              fprintf(stderr,
+"Once your sysadmin has merged all scorefiles on this system (or you can do\n"
+"without your old circuslinux highscores) you can safely delete you old config\n"
+"and scorefile :\n %s",  filename);
+	      return (fi);
+            }
+        }
+#endif /* SHARED_SCOREFILE_YES */
+      
       fprintf(stderr, "\nWarning: I could not open the options file "); 
       
       if (strcmp(mode, "r") == 0)
@@ -3471,10 +3595,10 @@ FILE * open_option_file(char * mode)
         fprintf(stderr, "for write:");
       
      fprintf(stderr, "\n%s\n"
-              "The error that occured was:\n"
+              "The error that occurred was:\n"
               "%s\n\n", filename, strerror(errno));
     }
-  
+
   return(fi);
 }
 

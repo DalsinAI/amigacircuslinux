@@ -3,7 +3,7 @@ AC_INIT(README.txt)
 
 
 dnl Setup for automake
-AM_INIT_AUTOMAKE(circuslinux,1.0.2)
+AM_INIT_AUTOMAKE(circuslinux,1.0.3)
 
 dnl Detect host info
 AC_CANONICAL_HOST
@@ -69,16 +69,29 @@ AC_ARG_ENABLE(joystick,
               JOY=YES)
 
 AC_SUBST(JOY)
+
 	
+dnl shared scorefile
+SHARED_SCOREFILE=NO
+AC_ARG_ENABLE(scorefile,
+              [  --enable-scorefile      Use shared scorefile [default=no]],
+              SHARED_SCOREFILE=YES)
+
+AC_SUBST(SHARED_SCOREFILE)
+
 
 dnl Target
-case "$target" in
-	*-*-linux*)
+case "$target_os" in
+	*linux-gnu | linux* | k*bsd*-gnu | gnu*)
 	TARGET_DEF=LINUX
 	;;	
 
- *-*-cygwin* | *-*-mingw32*)
+ cygwin* | mingw32*)
 	TARGET_DEF=WIN32
+	;;
+
+ *)
+	echo Unidentified $target_os
 	;;
 esac	
 AC_SUBST(TARGET_DEF)

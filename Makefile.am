@@ -18,19 +18,20 @@ VERSION = @VERSION@
 CC=@CC@
 DATA_PREFIX=$(pkgdatadir)/data/
 JOY=@JOY@
+SHARED_SCOREFILE=@SHARED_SCOREFILE@
 TARGET_DEF=@TARGET_DEF@
 
 
-CFLAGS  = @CFLAGS@ -Wall -O2 -DDATA_PREFIX=\"$(DATA_PREFIX)\" \
-	  -D$(TARGET_DEF) -DJOY_$(JOY)
-LIBS    = @LIBS@ 
+AM_CFLAGS  = -Wall -O2 -DDATA_PREFIX=\"$(DATA_PREFIX)\" \
+	  -D$(TARGET_DEF) -DJOY_$(JOY) -DSHARED_SCOREFILE_$(SHARED_SCOREFILE)
+AM_LIBS    = @LIBS@
 
 
 bin_PROGRAMS = circuslinux
 
 circuslinux_SOURCES = circuslinux.c
-circuslinux_CFLAGS  = CFLAGS
-circuslinux_LIBS    = LIBS
+circuslinux_CFLAGS  = $(AM_CFLAGS)
+circuslinux_LIBS    = $(AM_LIBS)
 
 docdir = $(prefix)/share/doc/$(PACKAGE)-$(VERSION)
 
