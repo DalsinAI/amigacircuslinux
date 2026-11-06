@@ -3556,6 +3556,9 @@ FILE * open_option_file(char * mode)
   strcpy(filename, home);
   strcat(filename, "/.circuslinux");
 #endif
+#elif defined(__amigaos__)
+  /* the options and high scores beside the program */
+  filename = "PROGDIR:circuslinux.dat";
 #else
   filename = "circuslinux.dat";
 #endif
