@@ -76,6 +76,7 @@ dist: $(BUILD)/$(PROG) $(ICONS) AMIGA_PORT.md
 	cp -R data/images data/music data/sounds $(OUT)/data/
 	rm -f $(OUT)/data/images/circuslinux-icon.xpm
 	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp amiga/Controls $(OUT)/Controls
 	cp README.txt $(OUT)/ReadMe-upstream
 	cp COPYING.txt $(OUT)/COPYING.txt
 	cp amiga/libmikmod/COPYING.LIB $(OUT)/COPYING-libmikmod.txt
